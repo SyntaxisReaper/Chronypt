@@ -3,6 +3,14 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Preload, Line } from '@react-three/drei';
 import * as THREE from 'three';
 
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
 /* ─── Helper: Fibonacci Sphere Points ─── */
 function fibonacciSphere(samples: number, radius: number): Float32Array {
   const positions = new Float32Array(samples * 3);
@@ -19,16 +27,16 @@ function fibonacciSphere(samples: number, radius: number): Float32Array {
 }
 
 /* ─── Globe Core: dotted sphere surface ─── */
-function GlobeDots() {
-  const dotCount = 2000;
+function GlobeDots({ dotCount }: { dotCount: number }) {
 
   const geometry = useMemo(() => {
+    const random = createSeededRandom(1337);
     const geo = new THREE.BufferGeometry();
     const pos = fibonacciSphere(dotCount, 2);
     const col = new Float32Array(dotCount * 3);
     for (let i = 0; i < dotCount; i++) {
-      const brightness = 0.3 + Math.random() * 0.7;
-      const isContinentDot = Math.random() > 0.5;
+      const brightness = 0.3 + random() * 0.7;
+      const isContinentDot = random() > 0.5;
       if (isContinentDot) {
         col[i * 3] = 0.2 * brightness;
         col[i * 3 + 1] = 0.7 * brightness;
@@ -42,7 +50,7 @@ function GlobeDots() {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     return geo;
-  }, []);
+  }, [dotCount]);
 
   return (
     <points geometry={geometry}>
@@ -109,7 +117,11 @@ function GlobeAtmosphere() {
 /* ─── Orbiting Ring with a travelling data-dot ─── */
 function OrbitalRing({ radius, color, tilt, speed }: { radius: number; color: string; tilt: [number, number, number]; speed: number }) {
   const dotRef = useRef<THREE.Mesh>(null);
-  const angleRef = useRef(Math.random() * Math.PI * 2);
+  const initialAngle = useMemo(() => {
+    const random = createSeededRandom(Math.floor(radius * 1000 + speed * 10000));
+    return random() * Math.PI * 2;
+  }, [radius, speed]);
+  const angleRef = useRef(initialAngle);
 
   useFrame((_, delta) => {
     angleRef.current += delta * speed;
@@ -163,7 +175,7 @@ function ConnectionArcs() {
 }
 
 /* ─── Full Tech Globe (reusable) ─── */
-function TechGlobe() {
+function TechGlobe({ dotCount }: { dotCount: number }) {
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
@@ -175,7 +187,7 @@ function TechGlobe() {
   return (
     <group ref={groupRef}>
       <GlobeInner />
-      <GlobeDots />
+      <GlobeDots dotCount={dotCount} />
       <GlobeAtmosphere />
       <ConnectionArcs />
       <OrbitalRing radius={2.6} color="#3bb4d2" tilt={[Math.PI / 3, 0, 0.2]} speed={0.6} />
@@ -190,15 +202,16 @@ function MolecularParticles({ count = 500, spread = 25 }: { count?: number; spre
   const pointsRef = useRef<THREE.Points>(null);
 
   const geometry = useMemo(() => {
+    const random = createSeededRandom(424242);
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * spread;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * spread;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * spread;
+      pos[i * 3] = (random() - 0.5) * spread;
+      pos[i * 3 + 1] = (random() - 0.5) * spread;
+      pos[i * 3 + 2] = (random() - 0.5) * spread;
 
-      const palette = Math.random();
+      const palette = random();
       if (palette < 0.4) {
         col[i * 3] = 0.23; col[i * 3 + 1] = 0.7; col[i * 3 + 2] = 0.82;
       } else if (palette < 0.7) {
@@ -235,28 +248,29 @@ function MolecularParticles({ count = 500, spread = 25 }: { count?: number; spre
 }
 
 /* ─── Circuit Lines (login background, using drei Line) ─── */
-function CircuitLines() {
+function CircuitLines({ lineCount }: { lineCount: number }) {
   const { lines, junctions } = useMemo(() => {
+    const random = createSeededRandom(98765);
     const lineData: [number, number, number][][] = [];
     const junctionPts: [number, number, number][] = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < lineCount; i++) {
       const pts: [number, number, number][] = [];
-      let x = (Math.random() - 0.5) * 20;
-      let y = (Math.random() - 0.5) * 14;
-      const z = -5 + Math.random() * -5;
+      let x = (random() - 0.5) * 20;
+      let y = (random() - 0.5) * 14;
+      const z = -5 + random() * -5;
       pts.push([x, y, z]);
       junctionPts.push([x, y, z]);
-      const segments = 3 + Math.floor(Math.random() * 4);
+      const segments = 3 + Math.floor(random() * 4);
       for (let s = 0; s < segments; s++) {
-        if (Math.random() > 0.5) { x += (Math.random() - 0.5) * 6; }
-        else { y += (Math.random() - 0.5) * 4; }
+        if (random() > 0.5) { x += (random() - 0.5) * 6; }
+        else { y += (random() - 0.5) * 4; }
         pts.push([x, y, z]);
         junctionPts.push([x, y, z]);
       }
       lineData.push(pts);
     }
     return { lines: lineData, junctions: junctionPts };
-  }, []);
+  }, [lineCount]);
 
   return (
     <group>
@@ -275,9 +289,15 @@ function CircuitLines() {
 
 /* ─── Exported Scene Component ─── */
 export default function Scene({ page }: { page: 'home' | 'login' }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const dotCount = isMobile ? 900 : 2000;
+  const particleCount = isMobile ? 160 : 400;
+  const circuitIntensity = isMobile ? 8 : 15;
+
   return (
     <Canvas
       camera={{ position: page === 'login' ? [0, 0, 4.5] : [0, 0, 6], fov: 45 }}
+      dpr={isMobile ? [1, 1.25] : [1, 2]}
       style={{ width: '100%', height: '100%' }}
       gl={{ antialias: true, alpha: true }}
     >
@@ -301,19 +321,19 @@ export default function Scene({ page }: { page: 'home' | 'login' }) {
       {page === 'home' && (
         <>
           <group position={[1.5, -0.2, 0]}>
-            <TechGlobe />
+            <TechGlobe dotCount={dotCount} />
           </group>
-          <MolecularParticles count={400} spread={30} />
+          <MolecularParticles count={particleCount} spread={isMobile ? 20 : 30} />
         </>
       )}
 
       {page === 'login' && (
         <>
           <group position={[2.5, 0.3, -1]}>
-            <TechGlobe />
+            <TechGlobe dotCount={dotCount} />
           </group>
-          <CircuitLines />
-          <MolecularParticles count={400} spread={30} />
+          <CircuitLines lineCount={circuitIntensity} />
+          <MolecularParticles count={particleCount} spread={isMobile ? 20 : 30} />
         </>
       )}
 

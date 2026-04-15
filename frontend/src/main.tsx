@@ -6,9 +6,9 @@ import App from './App.tsx'
 // Suppress Three.js Clock deprecation warning from @react-three/fiber internals
 // This is a known issue with R3F + Three.js r165+, the library hasn't migrated to Timer yet
 const originalWarn = console.warn;
-console.warn = (...args: any[]) => {
+console.warn = (...args: unknown[]) => {
   if (typeof args[0] === 'string' && args[0].includes('THREE.Clock')) return;
-  originalWarn.apply(console, args);
+  originalWarn.apply(console, args as Parameters<typeof console.warn>);
 };
 
 createRoot(document.getElementById('root')!).render(

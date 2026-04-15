@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import anime from 'animejs';
 import Scene from '../components/Scene';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiFetch } from '../utils/api';
+import { usePageMeta } from '../utils/seo';
 
 interface StepOption {
   value: string;
@@ -79,6 +79,12 @@ export default function Onboarding() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const cardsRef = useRef<HTMLDivElement>(null);
+
+  usePageMeta({
+    title: 'Onboarding',
+    description: 'Complete your Chronypt onboarding to personalize your workspace setup.',
+    path: '/onboarding',
+  });
 
   useEffect(() => {
     animateCards();
@@ -159,12 +165,10 @@ export default function Onboarding() {
   async function handleLaunch() {
     setLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${API_URL}/api/onboarding`, {
+      const res = await apiFetch('/api/onboarding', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(answers),
       });

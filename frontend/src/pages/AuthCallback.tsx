@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { apiFetch } from '../utils/api';
+import { usePageMeta } from '../utils/seo';
 
 /**
  * OAuth callback handler — receives tokens from URL params after OAuth redirect
@@ -9,23 +11,35 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  usePageMeta({
+    title: 'Authenticating',
+    description: 'Completing sign-in with your selected provider.',
+    path: '/auth/callback',
+  });
+
   useEffect(() => {
-    const accessToken = searchParams.get('accessToken');
-    const refreshToken = searchParams.get('refreshToken');
-    const onboarded = searchParams.get('onboarded');
+    const hasSuccessFlag = searchParams.get('status') === 'success';
 
-    if (accessToken && refreshToken) {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-
-      if (onboarded === 'true') {
-        navigate('/dashboard');
-      } else {
-        navigate('/onboarding');
-      }
-    } else {
+    if (!hasSuccessFlag) {
       navigate('/login?error=oauth_failed');
+      return;
     }
+
+    apiFetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error('OAuth session invalid');
+        }
+        const data = await res.json();
+        if (data.onboarded) {
+          navigate('/dashboard');
+        } else {
+          navigate('/onboarding');
+        }
+      })
+      .catch(() => {
+        navigate('/login?error=oauth_failed');
+      });
   }, [navigate, searchParams]);
 
   return (

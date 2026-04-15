@@ -7,11 +7,13 @@ import passport from './config/passport';
 import { connectMongoDB, disconnectDatabases } from './config/db';
 import authRoutes from './routes/auth';
 import onboardingRoutes from './routes/onboarding';
+import { createRateLimiter } from './middleware/rateLimit';
 
 dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
+const authRateLimiter = createRateLimiter(30, 10 * 60 * 1000);
 
 // ─── Middleware ───
 app.use(helmet());
@@ -25,7 +27,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 // ─── Routes ───
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 
 // ─── Health check ───

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import anime from 'animejs';
 import Scene from '../components/Scene';
+import { usePageMeta } from '../utils/seo';
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -15,6 +16,12 @@ export default function Home() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
+
+  usePageMeta({
+    title: 'Home',
+    description: 'Chronypt helps teams move from raw code to global deployment with full-stack technical solutions.',
+    path: '/',
+  });
 
   useEffect(() => {
     // Anime.js staggered text entrance
@@ -51,6 +58,7 @@ export default function Home() {
 
   return (
     <motion.div
+      className="home-shell"
       variants={pageVariants}
       initial="initial"
       animate="animate"
@@ -63,7 +71,7 @@ export default function Home() {
       }}
     >
       {/* Full-screen 3D background (globe + particles) */}
-      <div style={{
+      <div className="home-scene" style={{
         position: 'absolute',
         top: 0,
         left: 0,
@@ -75,7 +83,7 @@ export default function Home() {
       </div>
 
       {/* Dark gradient overlay on the left for text readability */}
-      <div style={{
+      <div className="home-overlay" style={{
         position: 'absolute',
         top: 0,
         left: 0,
@@ -87,7 +95,7 @@ export default function Home() {
       }} />
 
       {/* Text Content */}
-      <div style={{
+      <div className="home-content" style={{
         position: 'relative',
         zIndex: 2,
         display: 'flex',
@@ -96,7 +104,7 @@ export default function Home() {
         paddingLeft: '8%',
         pointerEvents: 'none',
       }}>
-        <div style={{ maxWidth: '600px', pointerEvents: 'auto' }}>
+        <div className="home-copy" style={{ maxWidth: '600px', pointerEvents: 'auto' }}>
           <h1
             ref={headingRef}
             style={{
@@ -127,7 +135,7 @@ export default function Home() {
             MULTI - TECH SOLUTIONS
           </p>
 
-          <div ref={buttonsRef} style={{ display: 'flex', gap: '1.5rem' }}>
+          <div ref={buttonsRef} className="home-actions" style={{ display: 'flex', gap: '1.5rem' }}>
             <button className="btn-outline" onClick={() => navigate('/login?mode=signup')} style={{ minWidth: '160px', opacity: 0 }}>Get Started</button>
             <button
               className="btn-primary"

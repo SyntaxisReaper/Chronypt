@@ -4,10 +4,33 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret';
-const ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m';
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+const JWT_SECRET = getRequiredEnv('JWT_SECRET');
+const JWT_REFRESH_SECRET = getRequiredEnv('JWT_REFRESH_SECRET');
+const ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
+
+function parseDurationMs(duration: string): number {
+  const match = duration.trim().match(/^(\d+)([smhd])$/i);
+  if (!match) {
+    throw new Error(`Invalid duration format: ${duration}. Use values like 15m, 7d, 1h.`);
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+
+  if (unit === 's') return value * 1000;
+  if (unit === 'm') return value * 60 * 1000;
+  if (unit === 'h') return value * 60 * 60 * 1000;
+  return value * 24 * 60 * 60 * 1000;
+}
 
 export interface TokenPayload {
   userId: string;
@@ -19,7 +42,7 @@ export interface TokenPayload {
  * Generate a short-lived access token
  */
 export function generateAccessToken(payload: TokenPayload): string {
-  const opts: SignOptions = { expiresIn: ACCESS_EXPIRY as any };
+  const opts: SignOptions = { expiresIn: ACCESS_EXPIRY as SignOptions['expiresIn'] };
   return jwt.sign(payload as any, JWT_SECRET, opts);
 }
 
@@ -27,7 +50,7 @@ export function generateAccessToken(payload: TokenPayload): string {
  * Generate a long-lived refresh token
  */
 export function generateRefreshToken(payload: TokenPayload): string {
-  const opts: SignOptions = { expiresIn: REFRESH_EXPIRY as any };
+  const opts: SignOptions = { expiresIn: REFRESH_EXPIRY as SignOptions['expiresIn'] };
   return jwt.sign(payload as any, JWT_REFRESH_SECRET, opts);
 }
 
@@ -56,7 +79,5 @@ export function hashToken(token: string): string {
  * Calculate refresh token expiry date for MongoDB TTL
  */
 export function getRefreshTokenExpiry(): Date {
-  const match = REFRESH_EXPIRY.match(/(\d+)/);
-  const days = match ? parseInt(match[1], 10) : 7;
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  return new Date(Date.now() + parseDurationMs(REFRESH_EXPIRY));
 }

@@ -8,19 +8,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// ─── Local Strategy (email + password) ───
+// ─── Local Strategy (username + password) ───
 passport.use(
   new LocalStrategy(
-    { usernameField: 'email', passwordField: 'password' },
-    async (email, password, done) => {
+    { usernameField: 'username', passwordField: 'password' },
+    async (username, password, done) => {
       try {
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { username } });
         if (!user || !user.passwordHash) {
-          return done(null, false, { message: 'Invalid email or password.' });
+          return done(null, false, { message: 'Invalid username or password.' });
         }
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) {
-          return done(null, false, { message: 'Invalid email or password.' });
+          return done(null, false, { message: 'Invalid username or password.' });
         }
         return done(null, user);
       } catch (err) {

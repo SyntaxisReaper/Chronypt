@@ -4,8 +4,8 @@ import { motion } from 'framer-motion';
 import { User, Lock, Mail, UserPlus } from 'lucide-react';
 import anime from 'animejs';
 import Scene from '../components/Scene';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiFetch } from '../utils/api';
+import { usePageMeta } from '../utils/seo';
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -29,6 +29,12 @@ export default function Login() {
 
   const cardRef = useRef<HTMLDivElement>(null);
   const fieldsRef = useRef<HTMLDivElement>(null);
+
+  usePageMeta({
+    title: isSignUp ? 'Create Account' : 'Login',
+    description: 'Sign in to Chronypt or create your account to start building and deploying your digital infrastructure.',
+    path: '/login',
+  });
 
   useEffect(() => {
     if (cardRef.current) {
@@ -89,9 +95,9 @@ export default function Login() {
       const endpoint = isSignUp ? '/api/auth/register' : '/api/auth/login';
       const body = isSignUp
         ? { fullName, email, username, password }
-        : { email, password };
+        : { username, password };
 
-      const res = await fetch(`${API_URL}${endpoint}`, {
+      const res = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -105,17 +111,13 @@ export default function Login() {
         return;
       }
 
-      // Store tokens
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-
       // Route based on onboarding status
       if (data.user.onboarded) {
         navigate('/dashboard');
       } else {
         navigate('/onboarding');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Is the server running?');
     } finally {
       setLoading(false);
@@ -123,11 +125,13 @@ export default function Login() {
   }
 
   function handleOAuth(provider: string) {
-    window.location.href = `${API_URL}/api/auth/${provider}`;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    window.location.href = `${apiUrl}/api/auth/${provider}`;
   }
 
   return (
     <motion.div
+      className="login-shell"
       variants={pageVariants}
       initial="initial"
       animate="animate"
@@ -143,12 +147,12 @@ export default function Login() {
       }}
     >
       {/* 3D Background */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+      <div className="login-scene" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
         <Scene page="login" />
       </div>
 
       {/* Gradient overlay */}
-      <div style={{
+      <div className="login-overlay" style={{
         position: 'absolute', top: 0, left: 0, width: '60%', height: '100%',
         background: 'linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 70%, transparent 100%)',
         zIndex: 1, pointerEvents: 'none',
@@ -157,7 +161,7 @@ export default function Login() {
       {/* Login / Sign Up Card */}
       <div
         ref={cardRef}
-        className="glass"
+        className="glass login-card"
         style={{
           width: '480px', padding: '2.8rem 2.8rem', borderRadius: '28px',
           zIndex: 2, marginLeft: '12%', marginTop: '4rem', opacity: 0,
@@ -204,13 +208,13 @@ export default function Login() {
               </div>
             )}
 
-            {/* Login: Email (shared) */}
+            {/* Login: Username (shared) */}
             {!isSignUp && (
               <div className="form-field" style={{ marginBottom: '1.4rem', opacity: 0 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', fontSize: '0.9rem', fontWeight: 500, color: '#e0e0e0' }}>
-                  <Mail size={17} strokeWidth={2} /> Email
+                  <User size={17} strokeWidth={2} /> Username
                 </label>
-                <input type="email" placeholder="Enter your email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input type="text" placeholder="Enter your username" className="input-field" value={username} onChange={(e) => setUsername(e.target.value)} required />
               </div>
             )}
 

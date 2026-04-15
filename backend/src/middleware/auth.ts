@@ -7,13 +7,16 @@ import { verifyAccessToken, TokenPayload } from '../utils/jwt';
  */
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
+  const cookieToken = req.cookies?.accessToken as string | undefined;
+  const bearerToken = authHeader && authHeader.startsWith('Bearer ')
+    ? authHeader.split(' ')[1]
+    : undefined;
+  const token = bearerToken || cookieToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     res.status(401).json({ error: 'Access denied. No token provided.' });
     return;
   }
-
-  const token = authHeader.split(' ')[1];
 
   try {
     const payload = verifyAccessToken(token);

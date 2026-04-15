@@ -3,8 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut } from 'lucide-react';
 import Scene from '../components/Scene';
+import { apiFetch } from '../utils/api';
+import { usePageMeta } from '../utils/seo';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+interface DashboardUser {
+  username: string;
+  onboarded: boolean;
+  profile?: {
+    displayName?: string;
+  };
+  onboarding?: {
+    operationalRole: string;
+    primaryObjective: string;
+    infrastructureState: string;
+    deploymentTimeline: string;
+  };
+}
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -14,17 +28,16 @@ const pageVariants = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<DashboardUser | null>(null);
+
+  usePageMeta({
+    title: 'Dashboard',
+    description: 'View your Chronypt workspace summary and onboarding setup.',
+    path: '/dashboard',
+  });
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    fetch(`${API_URL}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch('/api/auth/me')
       .then((res) => {
         if (!res.ok) throw new Error('Unauthorized');
         return res.json();
@@ -37,25 +50,16 @@ export default function Dashboard() {
         }
       })
       .catch(() => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
         navigate('/login');
       });
   }, [navigate]);
 
   function handleLogout() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    const accessToken = localStorage.getItem('accessToken');
-    fetch(`${API_URL}/api/auth/logout`, {
+    apiFetch('/api/auth/logout', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ refreshToken }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
     }).finally(() => {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       navigate('/login');
     });
   }

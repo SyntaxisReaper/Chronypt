@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import type { CookieOptions } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import passport from '../config/passport';
@@ -15,6 +16,39 @@ import {
 import { authenticate, getAuthUser } from '../middleware/auth';
 
 const router = Router();
+const isProduction = process.env.NODE_ENV === 'production';
+const cookieSameSite = (process.env.AUTH_COOKIE_SAME_SITE || 'lax').toLowerCase() as CookieOptions['sameSite'];
+const cookieSecure = process.env.AUTH_COOKIE_SECURE
+  ? process.env.AUTH_COOKIE_SECURE === 'true'
+  : isProduction || cookieSameSite === 'none';
+
+const baseCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: cookieSecure,
+  sameSite: cookieSameSite,
+  path: '/',
+  ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
+};
+
+const accessCookieOptions: CookieOptions = {
+  ...baseCookieOptions,
+  maxAge: 15 * 60 * 1000,
+};
+
+const refreshCookieOptions: CookieOptions = {
+  ...baseCookieOptions,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+  res.cookie('accessToken', accessToken, accessCookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+}
+
+function clearAuthCookies(res: Response): void {
+  res.clearCookie('accessToken', { ...baseCookieOptions, maxAge: undefined });
+  res.clearCookie('refreshToken', { ...baseCookieOptions, maxAge: undefined });
+}
 
 // ─── Validation Schemas ───
 const registerSchema = z.object({
@@ -25,7 +59,7 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters').max(30),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -53,9 +87,9 @@ async function createTokensAndSession(
     expiresAt: getRefreshTokenExpiry(),
   });
 
+  setAuthCookies(res, accessToken, refreshToken);
+
   res.json({
-    accessToken,
-    refreshToken,
     user: {
       id: user.id,
       email: user.email,
@@ -120,17 +154,17 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const { email, password } = parsed.data;
+    const { username, password } = parsed.data;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { username } });
     if (!user || !user.passwordHash) {
-      res.status(401).json({ error: 'Invalid email or password.' });
+      res.status(401).json({ error: 'Invalid username or password.' });
       return;
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      res.status(401).json({ error: 'Invalid email or password.' });
+      res.status(401).json({ error: 'Invalid username or password.' });
       return;
     }
 
@@ -144,7 +178,7 @@ router.post('/login', async (req: Request, res: Response) => {
 // ─── POST /api/auth/refresh ───
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     if (!refreshToken) {
       res.status(400).json({ error: 'Refresh token is required.' });
       return;
@@ -157,6 +191,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const hashed = hashToken(refreshToken);
     const session = await Session.findOne({ refreshToken: hashed });
     if (!session) {
+      clearAuthCookies(res);
       res.status(401).json({ error: 'Invalid refresh token.' });
       return;
     }
@@ -167,6 +202,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
     // Fetch latest user data
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) {
+      clearAuthCookies(res);
       res.status(401).json({ error: 'User not found.' });
       return;
     }
@@ -204,12 +240,12 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
 // ─── POST /api/auth/logout ───
 router.post('/logout', authenticate, async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     if (refreshToken) {
       await Session.deleteOne({ refreshToken: hashToken(refreshToken) });
     }
-    // Optionally: delete all sessions for this user
-    // await Session.deleteMany({ userId: req.user!.userId });
+
+    clearAuthCookies(res);
     res.json({ message: 'Logged out successfully.' });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });
@@ -233,8 +269,8 @@ router.get('/google/callback',
       ipAddress: req.ip || '',
       expiresAt: getRefreshTokenExpiry(),
     });
-    // Redirect to frontend with tokens
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}&onboarded=${user.onboarded}`);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?status=success`);
   }
 );
 
@@ -255,7 +291,8 @@ router.get('/github/callback',
       ipAddress: req.ip || '',
       expiresAt: getRefreshTokenExpiry(),
     });
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}&onboarded=${user.onboarded}`);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?status=success`);
   }
 );
 
@@ -276,7 +313,8 @@ router.get('/microsoft/callback',
       ipAddress: req.ip || '',
       expiresAt: getRefreshTokenExpiry(),
     });
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}&onboarded=${user.onboarded}`);
+    setAuthCookies(res, accessToken, refreshToken);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?status=success`);
   }
 );
 

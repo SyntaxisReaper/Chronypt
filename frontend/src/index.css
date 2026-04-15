@@ -179,3 +179,77 @@ canvas {
 canvas:active {
   cursor: grabbing;
 }
+
+@media (max-width: 900px) {
+  .home-content {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+    align-items: flex-end;
+    padding-bottom: 3rem;
+  }
+
+  .home-copy {
+    max-width: 100% !important;
+  }
+
+  .home-overlay {
+    width: 100% !important;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.58) 45%, transparent 100%) !important;
+  }
+
+  .home-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem !important;
+  }
+
+  .home-actions button {
+    width: 100%;
+  }
+
+  .login-shell {
+    align-items: flex-start !important;
+  }
+
+  .login-overlay {
+    width: 100% !important;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 55%, transparent 100%) !important;
+  }
+
+  .login-card {
+    width: min(100% - 1.5rem, 480px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 1rem !important;
+    padding: 1.5rem 1.1rem !important;
+    border-radius: 22px !important;
+  }
+
+  .login-card h2 {
+    font-size: 1.25rem !important;
+    letter-spacing: 0.18em !important;
+  }
+
+  .social-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-content {
+    padding-top: 5rem;
+  }
+
+  .home-copy h1 {
+    margin-bottom: 1.25rem !important;
+  }
+
+  .home-copy p {
+    letter-spacing: 0.14em !important;
+  }
+
+  .login-card {
+    max-height: calc(100vh - 2rem);
+  }
+}
