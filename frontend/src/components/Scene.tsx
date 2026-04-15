@@ -1,7 +1,41 @@
-import { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useRef, useMemo, useEffect, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Preload, Line } from '@react-three/drei';
 import * as THREE from 'three';
+import ThreeGlobe from 'three-globe';
+
+/* ─── GeoJSON country data (Natural Earth 110m, bundled locally) ─── */
+const GEO_JSON_URL = '/countries.geojson';
+
+type CountryFeature = {
+  properties: {
+    ISO_A2?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type CountriesGeoJson = {
+  features: CountryFeature[];
+};
+
+/* ─── Arc connection data: city-to-city network links ─── */
+const ARC_CONNECTIONS = [
+  { startLat: 40.7128, startLng: -74.006,  endLat: 51.5074, endLng: -0.1278  }, // New York → London
+  { startLat: 51.5074, startLng: -0.1278,  endLat: 28.6139, endLng: 77.209   }, // London → Delhi
+  { startLat: 28.6139, startLng: 77.209,   endLat: 35.6762, endLng: 139.6503 }, // Delhi → Tokyo
+  { startLat: 35.6762, startLng: 139.6503, endLat: -33.8688,endLng: 151.2093 }, // Tokyo → Sydney
+  { startLat: 37.7749, startLng: -122.4194,endLat: 1.3521,  endLng: 103.8198 }, // San Francisco → Singapore
+  { startLat: 1.3521,  startLng: 103.8198, endLat: 25.2048, endLng: 55.2708  }, // Singapore → Dubai
+  { startLat: 25.2048, startLng: 55.2708,  endLat: -23.5505,endLng: -46.6333 }, // Dubai → São Paulo
+  { startLat: -23.5505,startLng: -46.6333, endLat: 40.7128, endLng: -74.006  }, // São Paulo → New York
+  { startLat: 19.076,  startLng: 72.8777,  endLat: 37.7749, endLng: -122.4194}, // Mumbai → San Francisco
+  { startLat: 48.8566, startLng: 2.3522,   endLat: 35.6762, endLng: 139.6503 }, // Paris → Tokyo
+];
+
+/* ─── Module-level cache to survive HMR and prevent leaks ─── */
+let cachedGlobe: ThreeGlobe | null = null;
+let cachedCountries: CountryFeature[] | null = null;
 
 function createSeededRandom(seed: number): () => number {
   let state = seed >>> 0;
@@ -11,190 +45,118 @@ function createSeededRandom(seed: number): () => number {
   };
 }
 
-/* ─── Helper: Fibonacci Sphere Points ─── */
-function fibonacciSphere(samples: number, radius: number): Float32Array {
-  const positions = new Float32Array(samples * 3);
-  const phi = Math.PI * (Math.sqrt(5) - 1);
-  for (let i = 0; i < samples; i++) {
-    const y = 1 - (i / (samples - 1)) * 2;
-    const r = Math.sqrt(1 - y * y);
-    const theta = phi * i;
-    positions[i * 3] = Math.cos(theta) * r * radius;
-    positions[i * 3 + 1] = y * radius;
-    positions[i * 3 + 2] = Math.sin(theta) * r * radius;
-  }
-  return positions;
-}
-
-/* ─── Globe Core: dotted sphere surface ─── */
-function GlobeDots({ dotCount }: { dotCount: number }) {
-
-  const geometry = useMemo(() => {
-    const random = createSeededRandom(1337);
-    const geo = new THREE.BufferGeometry();
-    const pos = fibonacciSphere(dotCount, 2);
-    const col = new Float32Array(dotCount * 3);
-    for (let i = 0; i < dotCount; i++) {
-      const brightness = 0.3 + random() * 0.7;
-      const isContinentDot = random() > 0.5;
-      if (isContinentDot) {
-        col[i * 3] = 0.2 * brightness;
-        col[i * 3 + 1] = 0.7 * brightness;
-        col[i * 3 + 2] = 0.85 * brightness;
-      } else {
-        col[i * 3] = 0.05;
-        col[i * 3 + 1] = 0.12;
-        col[i * 3 + 2] = 0.3;
+/* ─── Helper: recursively dispose all GPU resources on a Three.js object ─── */
+function disposeObject(obj: THREE.Object3D) {
+  obj.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Points) {
+      child.geometry?.dispose();
+      if (Array.isArray(child.material)) {
+        child.material.forEach((m) => m.dispose());
+      } else if (child.material) {
+        child.material.dispose();
       }
     }
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    return geo;
-  }, [dotCount]);
-
-  return (
-    <points geometry={geometry}>
-      <pointsMaterial size={0.025} vertexColors transparent opacity={0.9} sizeAttenuation />
-    </points>
-  );
-}
-
-/* ─── Globe Inner Sphere ─── */
-function GlobeInner() {
-  return (
-    <mesh>
-      <sphereGeometry args={[1.92, 64, 64]} />
-      <meshStandardMaterial
-        color="#030810"
-        emissive="#0a1a3a"
-        emissiveIntensity={0.5}
-        transparent
-        opacity={0.9}
-        roughness={0.8}
-      />
-    </mesh>
-  );
-}
-
-/* ─── Atmosphere glow via custom shader ─── */
-function GlobeAtmosphere() {
-  const shaderMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        glowColor: { value: new THREE.Color('#3bb4d2') },
-      },
-      vertexShader: `
-        varying float intensity;
-        void main() {
-          vec3 vNormal = normalize(normalMatrix * normal);
-          vec3 vNormel = normalize(vec3(0.0, 0.0, 1.0));
-          intensity = pow(0.7 - dot(vNormal, vNormel), 3.0);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 glowColor;
-        varying float intensity;
-        void main() {
-          vec3 glow = glowColor * intensity;
-          gl_FragColor = vec4(glow, intensity * 0.55);
-        }
-      `,
-      side: THREE.FrontSide,
-      blending: THREE.AdditiveBlending,
-      transparent: true,
-      depthWrite: false,
-    });
-  }, []);
-
-  return (
-    <mesh material={shaderMaterial}>
-      <sphereGeometry args={[2.15, 64, 64]} />
-    </mesh>
-  );
-}
-
-/* ─── Orbiting Ring with a travelling data-dot ─── */
-function OrbitalRing({ radius, color, tilt, speed }: { radius: number; color: string; tilt: [number, number, number]; speed: number }) {
-  const dotRef = useRef<THREE.Mesh>(null);
-  const initialAngle = useMemo(() => {
-    const random = createSeededRandom(Math.floor(radius * 1000 + speed * 10000));
-    return random() * Math.PI * 2;
-  }, [radius, speed]);
-  const angleRef = useRef(initialAngle);
-
-  useFrame((_, delta) => {
-    angleRef.current += delta * speed;
-    if (dotRef.current) {
-      dotRef.current.position.x = Math.cos(angleRef.current) * radius;
-      dotRef.current.position.z = Math.sin(angleRef.current) * radius;
-    }
   });
-
-  return (
-    <group rotation={tilt}>
-      <mesh>
-        <torusGeometry args={[radius, 0.006, 16, 200]} />
-        <meshBasicMaterial color={color} transparent opacity={0.35} />
-      </mesh>
-      <mesh ref={dotRef}>
-        <sphereGeometry args={[0.04, 16, 16]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-    </group>
-  );
 }
 
-/* ─── Network Connection Arcs (using drei Line) ─── */
-function ConnectionArcs() {
-  const arcs = useMemo(() => {
-    const pairs: [THREE.Vector3, THREE.Vector3][] = [
-      [new THREE.Vector3(1.2, 1.2, 1.0), new THREE.Vector3(-0.8, 0.5, 1.6)],
-      [new THREE.Vector3(-1.5, -0.5, 1.0), new THREE.Vector3(0.5, 1.4, 1.2)],
-      [new THREE.Vector3(0.3, -1.5, 1.2), new THREE.Vector3(1.6, 0.3, 0.8)],
-      [new THREE.Vector3(-1.0, 1.0, 1.4), new THREE.Vector3(1.0, -1.2, 1.0)],
-      [new THREE.Vector3(0.8, 0.8, 1.6), new THREE.Vector3(-1.4, -0.8, 0.9)],
-    ];
-    const colors = ['#3bb4d2', '#932DC2', '#3bb4d2', '#932DC2', '#3bb4d2'];
+/* ─── Three-Globe Earth Component ─── */
+function EarthGlobe() {
+  const groupRef = useRef<THREE.Group>(null);
+  const globeRef = useRef<ThreeGlobe | null>(null);
+  const { camera } = useThree();
+  const [countries, setCountries] = useState<CountryFeature[]>(() => cachedCountries ?? []);
 
-    return pairs.map(([start, end], i) => {
-      const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5).normalize().multiplyScalar(3.2);
-      const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-      const pts = curve.getPoints(50);
-      return { points: pts.map(p => [p.x, p.y, p.z] as [number, number, number]), color: colors[i] };
-    });
+  // Fetch GeoJSON once (cached at module level)
+  useEffect(() => {
+    if (cachedCountries) {
+      return;
+    }
+    fetch(GEO_JSON_URL)
+      .then((res) => res.json())
+      .then((data: CountriesGeoJson) => {
+        cachedCountries = data.features;
+        setCountries(data.features);
+      })
+      .catch((err) => console.warn('Failed to load GeoJSON:', err));
   }, []);
 
-  return (
-    <group>
-      {arcs.map((arc, i) => (
-        <Line key={i} points={arc.points} color={arc.color} transparent opacity={0.4} lineWidth={1} />
-      ))}
-    </group>
-  );
-}
+  // Create and configure globe — reuse cached instance across HMR
+  useEffect(() => {
+    if (countries.length === 0 || !groupRef.current) return;
 
-/* ─── Full Tech Globe (reusable) ─── */
-function TechGlobe({ dotCount }: { dotCount: number }) {
-  const groupRef = useRef<THREE.Group>(null);
+    const parentGroup = groupRef.current;
 
+    // Reuse existing globe if available (prevents HMR context loss)
+    if (cachedGlobe) {
+      globeRef.current = cachedGlobe;
+      parentGroup.add(cachedGlobe);
+      cachedGlobe.resumeAnimation();
+      return () => {
+        cachedGlobe?.pauseAnimation();
+        parentGroup.remove(cachedGlobe!);
+        globeRef.current = null;
+      };
+    }
+
+    const globe = new ThreeGlobe({ waitForGlobeReady: false, animateIn: false })
+      .showGlobe(true)
+      .showAtmosphere(true)
+      .atmosphereColor('#3bb4d2')
+      .atmosphereAltitude(0.2)
+      .showGraticules(true)
+      // Country polygons
+      .polygonsData(countries.filter((d) => d.properties.ISO_A2 !== 'AQ'))
+      .polygonCapColor(() => 'rgba(59, 180, 210, 0.15)')
+      .polygonSideColor(() => 'rgba(147, 45, 194, 0.1)')
+      .polygonStrokeColor(() => '#3bb4d2')
+      .polygonAltitude(0.008)
+      .polygonCapCurvatureResolution(5)
+      // Arc connections between cities
+      .arcsData(ARC_CONNECTIONS)
+      .arcColor((): [string, string] => ['#3bb4d2', '#932DC2'])
+      .arcAltitudeAutoScale(0.4)
+      .arcStroke(0.4)
+      .arcDashLength(0.6)
+      .arcDashGap(0.3)
+      .arcDashAnimateTime(4000);
+
+    // Custom dark globe material
+    const globeMaterial = new THREE.MeshPhongMaterial({
+      color: new THREE.Color('#06101f'),
+      emissive: new THREE.Color('#0d1f3c'),
+      emissiveIntensity: 0.6,
+      shininess: 25,
+      transparent: false,
+      opacity: 1.0,
+    });
+    globe.globeMaterial(globeMaterial);
+
+    // Scale: three-globe default radius = 100 units → we want ~2 units
+    globe.scale.set(0.02, 0.02, 0.02);
+
+    cachedGlobe = globe;
+    globeRef.current = globe;
+    parentGroup.add(globe);
+
+    return () => {
+      globe.pauseAnimation();
+      parentGroup.remove(globe);
+      globeRef.current = null;
+      // Don't dispose cachedGlobe — it will be reused on HMR
+    };
+  }, [countries]);
+
+  // Slow auto-rotation + keep globe synced with camera
   useFrame((_, delta) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.1;
+      groupRef.current.rotation.y += delta * 0.08;
+    }
+    if (globeRef.current) {
+      globeRef.current.setPointOfView(camera);
     }
   });
 
-  return (
-    <group ref={groupRef}>
-      <GlobeInner />
-      <GlobeDots dotCount={dotCount} />
-      <GlobeAtmosphere />
-      <ConnectionArcs />
-      <OrbitalRing radius={2.6} color="#3bb4d2" tilt={[Math.PI / 3, 0, 0.2]} speed={0.6} />
-      <OrbitalRing radius={2.9} color="#932DC2" tilt={[-Math.PI / 4, Math.PI / 6, -0.1]} speed={0.45} />
-      <OrbitalRing radius={3.2} color="#73449E" tilt={[0.1, Math.PI / 3, 0.3]} speed={0.35} />
-    </group>
-  );
+  return <group ref={groupRef} />;
 }
 
 /* ─── Molecular Particles (full-screen background) ─── */
@@ -290,7 +252,6 @@ function CircuitLines({ lineCount }: { lineCount: number }) {
 /* ─── Exported Scene Component ─── */
 export default function Scene({ page }: { page: 'home' | 'login' }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const dotCount = isMobile ? 900 : 2000;
   const particleCount = isMobile ? 160 : 400;
   const circuitIntensity = isMobile ? 8 : 15;
 
@@ -299,7 +260,7 @@ export default function Scene({ page }: { page: 'home' | 'login' }) {
       camera={{ position: page === 'login' ? [0, 0, 4.5] : [0, 0, 6], fov: 45 }}
       dpr={isMobile ? [1, 1.25] : [1, 2]}
       style={{ width: '100%', height: '100%' }}
-      gl={{ antialias: true, alpha: true }}
+      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
     >
       <ambientLight intensity={0.35} />
       <pointLight position={[10, 10, 10]} intensity={1.0} color="#3bb4d2" />
@@ -321,7 +282,7 @@ export default function Scene({ page }: { page: 'home' | 'login' }) {
       {page === 'home' && (
         <>
           <group position={[1.5, -0.2, 0]}>
-            <TechGlobe dotCount={dotCount} />
+            <EarthGlobe />
           </group>
           <MolecularParticles count={particleCount} spread={isMobile ? 20 : 30} />
         </>
@@ -330,7 +291,7 @@ export default function Scene({ page }: { page: 'home' | 'login' }) {
       {page === 'login' && (
         <>
           <group position={[2.5, 0.3, -1]}>
-            <TechGlobe dotCount={dotCount} />
+            <EarthGlobe />
           </group>
           <CircuitLines lineCount={circuitIntensity} />
           <MolecularParticles count={particleCount} spread={isMobile ? 20 : 30} />
@@ -340,4 +301,15 @@ export default function Scene({ page }: { page: 'home' | 'login' }) {
       <Preload all />
     </Canvas>
   );
+}
+
+/* ─── Clean up on full page unload (not HMR) ─── */
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (cachedGlobe) {
+      disposeObject(cachedGlobe);
+      cachedGlobe = null;
+    }
+    cachedCountries = null;
+  });
 }
