@@ -1,0 +1,25 @@
+Tech Stack — Do you have a preference? Common choices:
+
+Node.js + Express (JavaScript, pairs well with your React frontend)
+Python + FastAPI/Django
+Something else?
+
+Answer: You can use any combination like Node.js + Express or Python + FastAPI/Django
+
+Database — What should we use for storing users/data?
+
+MongoDB (NoSQL, flexible)
+PostgreSQL (relational, structured)
+Other?
+
+Answer: Use a combination of both MongoDB and PostgreSQL
+
+Features — For now, what should the backend handle?
+
+User authentication (register/login from the Login page)?
+Google/Microsoft/GitHub OAuth (the social login buttons)?
+Any other API endpoints or business logic you already have in mind?
+Hosting — You mentioned hosting frontend and backend separately. Are you targeting a specific platform (e.g., Render, Railway, Vercel, AWS)?
+
+Answer: User Authentication, Google/Microsoft/GitHub OAuth, Also Build the Sign in in the login page like Just Change the form to Sign up and give the respective fields and icons.
+        I will be using vercel for now but I may be using railway or Render or AWS in some time.

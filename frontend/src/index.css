@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  --bg-color: #000000;
+  --bg-gradient: radial-gradient(ellipse at 70% 50%, #1a0a2e 0%, #000000 65%);
+  --text-primary: #ffffff;
+  --text-secondary: #b0a8be;
+  --purple-main: #932DC2;
+  --purple-dark: #73449E;
+  --purple-glow: rgba(147, 45, 194, 0.3);
+  --cyan-main: #3bb4d2;
+  --card-bg: rgba(115, 68, 158, 0.08);
+  --card-border: rgba(147, 45, 194, 0.15);
+  --input-bg: #dfe2e8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-color);
+  background-image: var(--bg-gradient);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Glassmorphism ─── */
+.glass {
+  background: rgba(10, 5, 18, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(147, 45, 194, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Buttons ─── */
+.btn-primary {
+  background: var(--purple-main);
+  color: white;
+  padding: 14px 36px;
+  border-radius: 28px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.btn-primary:hover {
+  background: #a83dd4;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px var(--purple-glow);
+}
+
+.btn-outline {
+  background: transparent;
+  color: white;
+  padding: 14px 36px;
+  border-radius: 28px;
+  font-weight: 600;
+  border: 1px solid rgba(147, 45, 194, 0.4);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+.btn-outline:hover {
+  background: rgba(147, 45, 194, 0.1);
+  border-color: rgba(147, 45, 194, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(147, 45, 194, 0.15);
+}
+
+/* ─── Login button full-width ─── */
+.btn-login {
+  background: var(--purple-dark);
+  color: white;
+  padding: 15px;
+  border-radius: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  transition: all 0.35s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.btn-login:hover {
+  background: #8a52b5;
+  box-shadow: 0 4px 20px var(--purple-glow);
+}
+
+/* ─── Links ─── */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ─── Social Icon Circles ─── */
+.social-icon {
+  width: 50px;
+  height: 50px;
+  background: rgba(147, 45, 194, 0.06);
+  border-radius: 50%;
+  border: 1px solid rgba(147, 45, 194, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.social-icon:hover {
+  background: rgba(147, 45, 194, 0.15);
+  border-color: rgba(147, 45, 194, 0.35);
+  transform: scale(1.08);
+}
+
+/* ─── Input Fields ─── */
+.input-field {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: none;
+  background: var(--input-bg);
+  color: #333;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  transition: box-shadow 0.3s ease;
+}
+.input-field::placeholder {
+  color: #888;
+}
+.input-field:focus {
+  box-shadow: 0 0 0 2px var(--purple-main);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(147, 45, 194, 0.3);
+  border-radius: 3px;
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: var(--purple-main);
+  color: white;
+}
+
+/* ─── Canvas interaction cursor ─── */
+canvas {
+  cursor: grab;
+}
+canvas:active {
+  cursor: grabbing;
+}

@@ -1,0 +1,236 @@
+# Chronypt Backend + Onboarding — Implementation Plan
+
+Build a Node.js + Express backend with dual-database architecture (PostgreSQL + MongoDB), user authentication, OAuth social logins, and a 4-step premium onboarding wizard for new users.
+
+## Architecture Overview
+
+```mermaid
+graph LR
+    subgraph Frontend
+        A[React App] --> B[Login / Sign Up]
+        B --> C[Onboarding Wizard]
+        C --> D[Dashboard]
+    end
+    subgraph Backend
+        E[Express API] --> F[Passport.js Auth]
+        F --> G[JWT Tokens]
+        F --> H[OAuth Providers]
+        E --> I[Onboarding API]
+    end
+    subgraph Databases
+        J[(PostgreSQL<br/>Users, Profiles, Onboarding)]
+        K[(MongoDB<br/>Sessions, Logs)]
+    end
+    B --> E
+    C --> I
+    E --> J
+    E --> K
+    H --> L[Google]
+    H --> M[Microsoft]
+    H --> N[GitHub]
+```
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| API Server | Node.js + Express | REST API, routing, middleware |
+| Auth | Passport.js + JWT | Local auth + OAuth strategies |
+| PostgreSQL | Prisma ORM | Users, profiles, onboarding data |
+| MongoDB | Mongoose | Sessions, activity logs |
+| Validation | Zod | Request body validation |
+| Security | bcrypt, helmet, cors | Password hashing, HTTP security |
+
+---
+
+## Proposed Changes
+
+### Backend (`d:\Projects\Chronypt\backend\`)
+
+---
+
+#### [NEW] package.json
+Express app with dependencies: `express`, `prisma`, `@prisma/client`, `mongoose`, `passport`, `passport-local`, `passport-google-oauth20`, `passport-github2`, `passport-microsoft`, `jsonwebtoken`, `bcryptjs`, `zod`, `cors`, `helmet`, `dotenv`, `cookie-parser`, `tsx` (dev runner).
+
+#### [NEW] .env.example
+Template for all environment variables (database URLs, JWT secrets, OAuth credentials, FRONTEND_URL).
+
+#### [NEW] prisma/schema.prisma
+PostgreSQL schema:
+
+```prisma
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String?
+  provider      String    @default("local")  // local | google | github | microsoft
+  providerId    String?
+  onboarded     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  profile       Profile?
+  onboarding    Onboarding?
+}
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id])
+  displayName String
+  avatar      String?
+  bio         String?
+}
+
+model Onboarding {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  user                User    @relation(fields: [userId], references: [id])
+  operationalRole     String  // technical_founder | nontechnical_founder | product_manager | operations_lead
+  primaryObjective    String  // market_validation | system_architecture | operational_deployment | full_ecosystem
+  infrastructureState String  // greenfield | mvp_scaling | legacy_modernization
+  deploymentTimeline  String  // immediate | q2_q3 | long_term
+  completedAt         DateTime @default(now())
+}
+```
+
+#### [NEW] src/server.ts
+Main entry — connects MongoDB, initializes Passport, mounts routes, starts Express.
+
+#### [NEW] src/config/db.ts
+MongoDB connection via Mongoose + Prisma Client singleton.
+
+#### [NEW] src/config/passport.ts
+Passport strategies: Local, Google, GitHub, Microsoft. Each OAuth strategy auto-creates user in PostgreSQL on first login.
+
+#### [NEW] src/middleware/auth.ts
+JWT verification middleware for protected routes.
+
+#### [NEW] src/routes/auth.ts
+Auth endpoints:
+- `POST /api/auth/register` — Create user (fullName, email, username, password)
+- `POST /api/auth/login` — Login, returns JWT + `onboarded` flag
+- `POST /api/auth/refresh` — Refresh access token
+- `GET /api/auth/me` — Get current user (protected)
+- `GET /api/auth/google` → callback
+- `GET /api/auth/github` → callback
+- `GET /api/auth/microsoft` → callback
+
+#### [NEW] src/routes/onboarding.ts
+Onboarding endpoints (protected):
+- `POST /api/onboarding` — Save all 4 answers + set `user.onboarded = true`
+- `GET /api/onboarding` — Get current user's onboarding data
+
+#### [NEW] src/models/Session.ts
+Mongoose model for refresh tokens in MongoDB with **strict TTL auto-expiry**:
+
+```typescript
+// Schema fields:
+//   userId:       String (ref to PG user id)
+//   refreshToken: String (hashed)
+//   userAgent:    String (device info)
+//   ipAddress:    String
+//   expiresAt:    Date   ← TTL index target
+//   createdAt:    Date
+
+// MongoDB TTL index — tokens auto-delete when expiresAt is reached
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+```
+
+This ensures expired refresh tokens are automatically purged by MongoDB's background TTL monitor (~every 60s), keeping the collection lean with zero manual cleanup.
+
+#### [NEW] src/utils/jwt.ts
+JWT generation (access + refresh) and verification helpers.
+
+---
+
+### Frontend Updates (`d:\Projects\Chronypt\frontend\`)
+
+---
+
+#### [MODIFY] src/pages/Login.tsx
+- Add a **Login ↔ Sign Up toggle** that switches the form:
+  - **Login**: Username + Password
+  - **Sign Up**: Full Name + Email + Username + Password + Confirm Password
+- Animate toggle with anime.js
+- Wire form submission to `/api/auth/login` and `/api/auth/register`
+- Wire OAuth buttons to redirect to backend OAuth routes
+- On successful login/register: check `onboarded` flag → route to `/onboarding` or `/dashboard`
+
+#### [NEW] src/pages/Onboarding.tsx — The "Project Initialization" Wizard
+
+A 4-step premium onboarding wizard with glassmorphism cards, anime.js step transitions, and a progress bar. Each step is a full-screen view with large selectable cards (no typing required).
+
+**Step 1 — "What is your current operational role?"**
+
+| Card | Icon | Value |
+|------|------|-------|
+| Technical Founder / CTO | `Code2` | `technical_founder` |
+| Non-Technical Founder / CEO | `Briefcase` | `nontechnical_founder` |
+| Product Manager | `LayoutDashboard` | `product_manager` |
+| Operations Lead | `Settings` | `operations_lead` |
+
+**Step 2 — "What is the primary objective for this workspace?"**
+
+| Card | Icon | Value |
+|------|------|-------|
+| Market Validation | `TrendingUp` | `market_validation` |
+| System Architecture & Dev | `Server` | `system_architecture` |
+| Operational Deployment | `Rocket` | `operational_deployment` |
+| Full Ecosystem Build | `Globe` | `full_ecosystem` |
+
+**Step 3 — "What is the current state of your digital infrastructure?"**
+
+| Card | Icon | Value |
+|------|------|-------|
+| Starting from scratch (Greenfield) | `Sparkles` | `greenfield` |
+| Have an MVP, needs to scale | `ArrowUpRight` | `mvp_scaling` |
+| Legacy code, needs modernization | `RefreshCw` | `legacy_modernization` |
+
+**Step 4 — "What is your anticipated deployment timeline?"**
+
+| Card | Icon | Value |
+|------|------|-------|
+| Immediate (Next 30 Days) | `Zap` | `immediate` |
+| Q2/Q3 Roadmap (1-3 Months) | `Calendar` | `q2_q3` |
+| Long-term R&D (3-6 Months+) | `Clock` | `long_term` |
+
+**UX Details:**
+- Each card is a glassmorphism rectangle with the icon, title, and a subtle description
+- Selected card glows with `#932DC2` border + shadow
+- Step transitions use anime.js slide/fade animations
+- A thin progress bar at the top shows completion (steps 1–4)
+- "Next" and "Back" buttons at the bottom
+- Final step shows a "Launch Workspace" button that POSTs to `/api/onboarding`
+- 3D molecular particles in the background (same Scene component)
+
+#### [NEW] src/pages/Dashboard.tsx
+A minimal placeholder dashboard page that says "Welcome, {username}" — the user lands here after onboarding.
+
+#### [MODIFY] src/App.tsx
+Add routes: `/onboarding` → Onboarding, `/dashboard` → Dashboard (protected).
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **OAuth Credentials Required**: Google, Microsoft, and GitHub OAuth need app registrations on each developer console. I'll create `.env.example` — you fill in real values.
+
+> [!IMPORTANT]
+> **Databases Required**: You need a PostgreSQL and MongoDB instance running. For local dev, use local installs or Docker. For production, Supabase (PG) + MongoDB Atlas pair well with Vercel/Railway.
+
+> [!WARNING]
+> **OAuth will only work with real credentials**. Local/password auth will work immediately. OAuth can be tested after you configure provider credentials.
+
+## Verification Plan
+
+### Automated
+- `npx prisma generate` + `npx prisma db push` — schema verification
+- `npm run dev` — backend starts on port 5000
+- Test `POST /api/auth/register` and `POST /api/auth/login` via curl
+- Test `POST /api/onboarding` saves data correctly
+- Frontend: verify Login ↔ Sign Up toggle, onboarding wizard renders all 4 steps
+
+### Manual
+- Full OAuth flow in browser (requires credentials)
+- Complete onboarding wizard end-to-end
+- Verify redirect logic: new user → onboarding → dashboard

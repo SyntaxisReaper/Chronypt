@@ -1,0 +1,383 @@
+================================================================================
+                    CHRONYPT — COMPLETE ARCHITECTURE DOCUMENT
+                         Multi-Tech Solutions Platform
+================================================================================
+
+Last Updated: April 15, 2026
+Status: Frontend + Backend Core Complete
+
+================================================================================
+                         1. ARCHITECTURE OVERVIEW
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT LAYER                                      │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────┐               │
+│  │              React + Vite + TypeScript                    │               │
+│  │                                                          │               │
+│  │   ┌──────────┐  ┌──────────┐  ┌─────────────┐           │               │
+│  │   │  Home    │  │  Login/  │  │ Onboarding  │           │               │
+│  │   │  Page    │  │  SignUp  │  │   Wizard    │           │               │
+│  │   └────┬─────┘  └────┬─────┘  └──────┬──────┘           │               │
+│  │        │              │               │                  │               │
+│  │   ┌────┴──────────────┴───────────────┴──────┐           │               │
+│  │   │         Three.js 3D Engine               │           │               │
+│  │   │  • Tech Globe (Fibonacci dots + glow)    │           │               │
+│  │   │  • Molecular Particles (additive blend)  │           │               │
+│  │   │  • Orbital Rings + Data Points           │           │               │
+│  │   │  • Circuit Lines (login background)      │           │               │
+│  │   │  • OrbitControls (interactive)           │           │               │
+│  │   └──────────────────────────────────────────┘           │               │
+│  │                                                          │               │
+│  │   Libraries: react-three/fiber, drei, framer-motion,     │               │
+│  │              anime.js, lucide-react, react-router-dom    │               │
+│  └──────────────────────────────────────────────────────────┘               │
+│                              │                                              │
+│                    HTTP REST (JSON) + OAuth Redirects                        │
+│                              │                                              │
+└──────────────────────────────┼──────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           API LAYER                                         │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────┐               │
+│  │             Node.js + Express + TypeScript                │               │
+│  │                                                          │               │
+│  │   ┌────────────┐   ┌─────────────┐   ┌──────────────┐   │               │
+│  │   │   Auth     │   │ Onboarding  │   │   Health     │   │               │
+│  │   │  Routes    │   │   Routes    │   │   Check      │   │               │
+│  │   └─────┬──────┘   └──────┬──────┘   └──────────────┘   │               │
+│  │         │                 │                              │               │
+│  │   ┌─────┴─────────────────┴──────────┐                   │               │
+│  │   │        MIDDLEWARE STACK           │                   │               │
+│  │   │  • Helmet (HTTP security)        │                   │               │
+│  │   │  • CORS (frontend origin)        │                   │               │
+│  │   │  • JWT Auth (Bearer tokens)      │                   │               │
+│  │   │  • Zod Validation                │                   │               │
+│  │   └──────────────────────────────────┘                   │               │
+│  │                                                          │               │
+│  │   ┌──────────────────────────────────┐                   │               │
+│  │   │      PASSPORT.JS STRATEGIES     │                   │               │
+│  │   │  • Local (email + bcrypt)        │                   │               │
+│  │   │  • Google OAuth 2.0             │                   │               │
+│  │   │  • GitHub OAuth 2.0             │                   │               │
+│  │   │  • Microsoft OAuth 2.0          │                   │               │
+│  │   └──────────────────────────────────┘                   │               │
+│  └──────────────────────────────────────────────────────────┘               │
+│                        │                    │                                │
+└────────────────────────┼────────────────────┼────────────────────────────────┘
+                         │                    │
+                         ▼                    ▼
+┌────────────────────────────────┐  ┌────────────────────────────────┐
+│        DATA LAYER              │  │        DATA LAYER              │
+│                                │  │                                │
+│  ┌──────────────────────────┐  │  │  ┌──────────────────────────┐  │
+│  │     PostgreSQL            │  │  │  │      MongoDB              │  │
+│  │     (via Prisma ORM)      │  │  │  │      (via Mongoose)       │  │
+│  │                           │  │  │  │                           │  │
+│  │  ┌─────────────────────┐  │  │  │  │  ┌─────────────────────┐  │  │
+│  │  │ User                │  │  │  │  │  │ Session             │  │  │
+│  │  │  • id (cuid)        │  │  │  │  │  │  • userId           │  │  │
+│  │  │  • email (unique)   │  │  │  │  │  │  • refreshToken     │  │  │
+│  │  │  • username (unique)│  │  │  │  │  │    (hashed SHA-256) │  │  │
+│  │  │  • passwordHash     │  │  │  │  │  │  • userAgent        │  │  │
+│  │  │  • provider         │  │  │  │  │  │  • ipAddress        │  │  │
+│  │  │  • providerId       │  │  │  │  │  │  • expiresAt        │  │  │
+│  │  │  • onboarded (bool) │  │  │  │  │  │    ▲                │  │  │
+│  │  └─────────────────────┘  │  │  │  │  │    │ TTL Index      │  │  │
+│  │                           │  │  │  │  │    │ (auto-delete   │  │  │
+│  │  ┌─────────────────────┐  │  │  │  │  │    │  on expiry)    │  │  │
+│  │  │ Profile (1:1 User)  │  │  │  │  │  └─────────────────────┘  │  │
+│  │  │  • displayName      │  │  │  │  │                           │  │
+│  │  │  • avatar           │  │  │  │  └──────────────────────────┘  │
+│  │  │  • bio              │  │  │  │                                │
+│  │  └─────────────────────┘  │  │  └────────────────────────────────┘
+│  │                           │  │
+│  │  ┌─────────────────────┐  │  │
+│  │  │ Onboarding (1:1)    │  │  │
+│  │  │  • operationalRole  │  │  │
+│  │  │  • primaryObjective │  │  │
+│  │  │  • infrastructure   │  │  │
+│  │  │    State            │  │  │
+│  │  │  • deployment       │  │  │
+│  │  │    Timeline         │  │  │
+│  │  └─────────────────────┘  │  │
+│  │                           │  │
+│  └──────────────────────────┘  │
+│                                │
+└────────────────────────────────┘
+
+
+================================================================================
+                    2. USER AUTHENTICATION FLOW
+================================================================================
+
+  ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐
+  │  Landing │ ───▶ │  Login/  │ ───▶ │Onboarding│ ───▶ │Dashboard │
+  │   Page   │      │  SignUp  │      │  Wizard  │      │          │
+  └──────────┘      └──────────┘      └──────────┘      └──────────┘
+       │                 │                 │                  │
+       │   "Get Started" │   Register/     │   4-step         │   Returning
+       │   navigates to  │   Login with    │   setup wizard   │   users skip
+       │   /login?mode=  │   email or      │   (role, goal,   │   to dashboard
+       │   signup        │   OAuth         │   state, timeline)│
+       │                 │                 │                  │
+       │                 ▼                 │                  │
+       │         ┌───────────────┐         │                  │
+       │         │ OAuth Flow    │         │                  │
+       │         │ Google/GitHub │─────────┘                  │
+       │         │ /Microsoft   │                             │
+       │         └───────────────┘                            │
+       │                                                      │
+       └──────────────────────────────────────────────────────┘
+                          "Login" navigates to /login
+
+
+  TOKEN LIFECYCLE:
+  ================
+
+  1. User authenticates → Backend issues:
+     • Access Token  (JWT, 15 min expiry)
+     • Refresh Token (JWT, 7 day expiry, hashed in MongoDB)
+
+  2. Frontend stores both tokens in localStorage
+
+  3. Each API request sends: Authorization: Bearer <accessToken>
+
+  4. When access token expires:
+     • Frontend calls POST /api/auth/refresh with refreshToken
+     • Backend verifies → deletes old session → creates new tokens (rotation)
+
+  5. MongoDB TTL index auto-purges expired sessions every ~60 seconds
+
+
+================================================================================
+                    3. PROJECT DIRECTORY STRUCTURE
+================================================================================
+
+  d:\Projects\Chronypt\
+  │
+  ├── frontend\                         # React SPA (Vite + TypeScript)
+  │   ├── public\
+  │   │   └── logo.png                  # Chronypt logo (favicon + navbar)
+  │   ├── src\
+  │   │   ├── main.tsx                  # Entry point + THREE.Clock warning suppression
+  │   │   ├── App.tsx                   # Router + lazy loading + AnimatePresence
+  │   │   ├── index.css                 # Design system (vars, glassmorphism, buttons)
+  │   │   ├── components\
+  │   │   │   ├── Navbar.tsx            # Top nav: logo + links with active state
+  │   │   │   └── Scene.tsx             # 3D Engine: Globe + Particles + Rings + Arcs
+  │   │   └── pages\
+  │   │       ├── Home.tsx              # Landing: headline + CTA + 3D background
+  │   │       ├── Login.tsx             # Login ↔ Sign Up toggle + OAuth + API calls
+  │   │       ├── Onboarding.tsx        # 4-step wizard with glassmorphism cards
+  │   │       ├── Dashboard.tsx         # Welcome + onboarding summary + logout
+  │   │       └── AuthCallback.tsx      # OAuth redirect token handler
+  │   ├── index.html                    # SPA shell (title, meta, favicon)
+  │   ├── vite.config.ts               # Vite build config
+  │   └── package.json
+  │
+  ├── backend\                          # Express API (Node.js + TypeScript)
+  │   ├── prisma\
+  │   │   └── schema.prisma            # PostgreSQL schema (User, Profile, Onboarding)
+  │   ├── src\
+  │   │   ├── server.ts                # Entry: Express app + middleware + startup
+  │   │   ├── config\
+  │   │   │   ├── db.ts                # Prisma + Mongoose connection managers
+  │   │   │   └── passport.ts          # Passport strategies (Local + 3 OAuth)
+  │   │   ├── middleware\
+  │   │   │   └── auth.ts              # JWT Bearer verification middleware
+  │   │   ├── routes\
+  │   │   │   ├── auth.ts              # Register, Login, Refresh, Logout, OAuth, /me
+  │   │   │   └── onboarding.ts        # POST/GET onboarding wizard data
+  │   │   ├── models\
+  │   │   │   └── Session.ts           # Mongoose: Refresh tokens with TTL index
+  │   │   └── utils\
+  │   │       └── jwt.ts               # Token generation, verification, hashing
+  │   ├── .env                         # Environment variables (local dev)
+  │   ├── .env.example                 # Template for prod config
+  │   ├── tsconfig.json
+  │   └── package.json
+  │
+  ├── Figma Designs(Page wise)\         # Original Figma exports
+  │   ├── Home Page (Landing page).png
+  │   └── Login Page.png
+  │
+  └── Logo\
+      └── Logo.png                     # Chronypt brand logo
+
+
+================================================================================
+                    4. API ENDPOINTS REFERENCE
+================================================================================
+
+  BASE URL: http://localhost:5000
+
+  ┌────────┬──────────────────────────┬──────┬──────────────────────────────────┐
+  │ METHOD │ ENDPOINT                 │ AUTH │ DESCRIPTION                      │
+  ├────────┼──────────────────────────┼──────┼──────────────────────────────────┤
+  │ POST   │ /api/auth/register       │  No  │ Create account                   │
+  │ POST   │ /api/auth/login          │  No  │ Email + password login           │
+  │ POST   │ /api/auth/refresh        │  No  │ Rotate refresh token             │
+  │ GET    │ /api/auth/me             │ Yes  │ Get current user + profile       │
+  │ POST   │ /api/auth/logout         │ Yes  │ Invalidate refresh token         │
+  │ GET    │ /api/auth/google         │  No  │ Start Google OAuth               │
+  │ GET    │ /api/auth/google/callback │  No  │ Google OAuth callback            │
+  │ GET    │ /api/auth/github         │  No  │ Start GitHub OAuth               │
+  │ GET    │ /api/auth/github/callback │  No  │ GitHub OAuth callback            │
+  │ GET    │ /api/auth/microsoft      │  No  │ Start Microsoft OAuth            │
+  │ GET    │ /api/auth/microsoft/cb   │  No  │ Microsoft OAuth callback         │
+  │ POST   │ /api/onboarding          │ Yes  │ Save 4-step wizard answers       │
+  │ GET    │ /api/onboarding          │ Yes  │ Get onboarding data              │
+  │ GET    │ /api/health              │  No  │ Health check                     │
+  └────────┴──────────────────────────┴──────┴──────────────────────────────────┘
+
+
+================================================================================
+                    5. TECHNOLOGY STACK
+================================================================================
+
+  FRONTEND                          BACKEND
+  ─────────────────────────────     ─────────────────────────────
+  React 19                          Node.js + Express 4
+  TypeScript 5.6                    TypeScript 5.6
+  Vite 8 (Rolldown bundler)         tsx (dev runner)
+  Three.js 0.183                    Prisma 6 (PostgreSQL ORM)
+  @react-three/fiber 9.6            Mongoose 8 (MongoDB ODM)
+  @react-three/drei 10.7            Passport.js 0.7 (Auth)
+  Framer Motion                     JSON Web Tokens 9
+  Anime.js 3.2                      bcryptjs (password hashing)
+  Lucide React (icons)              Zod 3 (validation)
+  React Router DOM 7                Helmet 8 (HTTP security)
+                                    CORS, Cookie Parser
+
+  DATABASES
+  ─────────────────────────────
+  PostgreSQL    → Users, Profiles, Onboarding (structured, relational)
+  MongoDB       → Sessions/Refresh Tokens (TTL auto-expiry, flexible)
+
+
+================================================================================
+                    6. DESIGN SYSTEM
+================================================================================
+
+  COLOR PALETTE:
+  ──────────────
+  Primary Purple:    #932DC2
+  Secondary Purple:  #73449E
+  Background:        #000000
+  Cyan Accent:       #3BB4D2
+  Text Primary:      #FFFFFF
+  Text Secondary:    #B0A8BE
+  Input Background:  #DFE2E8
+
+  FONTS:
+  ──────
+  Body:      Inter (400-900)
+  Accent:    Space Grotesk (500-700)
+  Source:    Google Fonts CDN
+
+  UI PATTERNS:
+  ────────────
+  • Glassmorphism cards (blur 24px, rgba borders)
+  • Gradient overlays for text readability over 3D
+  • Rounded corners (14px inputs, 22px nav pills, 28px cards)
+  • Additive blending on particles
+  • Custom scrollbar + selection colors
+
+  3D COMPONENTS:
+  ──────────────
+  • Tech Globe: 2000 fibonacci dots, atmosphere glow shader, 3 orbital rings
+  • Particles: 400 points, cyan/purple/pink, subtle drift animation
+  • Circuit Lines: procedural straight-line patterns with junction nodes
+  • Interactivity: OrbitControls (drag-rotate, scroll-zoom)
+
+
+================================================================================
+                    7. BUILD & PERFORMANCE METRICS
+================================================================================
+
+  FRONTEND BUILD (production):
+  ────────────────────────────
+  Build time:         1.69 seconds
+  Total modules:      2,688 transformed
+  TypeScript errors:  0
+  Warnings:           0
+
+  Output chunks (code-split via React.lazy):
+  ───────────────────────────────────────────
+  index.html                0.59 KB
+  index.css                 2.81 KB  (gzip: 1.08 KB)
+  AuthCallback.js           0.59 KB
+  Home.js                   2.37 KB
+  Dashboard.js              3.83 KB
+  Login.js                 10.48 KB
+  Onboarding.js            11.24 KB
+  anime.es.js              17.82 KB
+  jsx-runtime.js           50.08 KB
+  framer-motion+router.js 124.10 KB
+  react+react-dom.js      186.61 KB
+  Scene (Three.js).js     913.13 KB  (gzip: 243 KB)
+
+  PAGE LOAD TIMES (dev server):
+  ─────────────────────────────
+  Home page:       100ms (cold)
+  Login page:       17ms
+  Onboarding page:   9ms
+
+  BACKEND:
+  ────────
+  TypeScript errors:  0
+  Dependencies:       184 packages
+  Server startup:     ~2 seconds
+
+
+================================================================================
+                    8. SETUP & RUN INSTRUCTIONS
+================================================================================
+
+  PREREQUISITES:
+  ──────────────
+  • Node.js 18+ installed
+  • PostgreSQL instance running
+  • MongoDB instance running
+
+  BACKEND SETUP:
+  ──────────────
+  1. cd d:\Projects\Chronypt\backend
+  2. Copy .env.example to .env and fill in:
+     - DATABASE_URL (PostgreSQL connection string)
+     - MONGODB_URI (MongoDB connection string)
+     - JWT_SECRET and JWT_REFRESH_SECRET (random secure strings)
+     - OAuth credentials (optional, for social login)
+  3. npx prisma db push          (creates PostgreSQL tables)
+  4. npm run dev                 (starts on http://localhost:5000)
+
+  FRONTEND SETUP:
+  ───────────────
+  1. cd d:\Projects\Chronypt\frontend
+  2. npm run dev                 (starts on http://localhost:5173)
+
+  BOTH servers must be running simultaneously for full functionality.
+
+
+================================================================================
+                    9. SECURITY MEASURES
+================================================================================
+
+  • Passwords hashed with bcrypt (12 salt rounds)
+  • JWT access tokens expire in 15 minutes
+  • Refresh tokens stored as SHA-256 hashes (not plaintext)
+  • Refresh token rotation on each use (old token invalidated)
+  • MongoDB TTL index auto-purges expired sessions
+  • Helmet.js sets secure HTTP headers
+  • CORS restricted to frontend origin only
+  • Zod validates all request bodies
+  • OAuth callback tokens passed via URL params (stateless)
+
+
+================================================================================
+                  END OF ARCHITECTURE DOCUMENT
+================================================================================

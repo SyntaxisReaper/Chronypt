@@ -1,0 +1,139 @@
+# Chronypt — Full Stack Walkthrough
+
+## Project Structure
+
+```
+d:\Projects\Chronypt\
+├── frontend/                          # React + Vite + Three.js
+│   └── src/
+│       ├── components/
+│       │   ├── Navbar.tsx
+│       │   └── Scene.tsx              # 3D Globe + Particles
+│       └── pages/
+│           ├── Home.tsx               # Landing page
+│           ├── Login.tsx              # Login ↔ Sign Up toggle
+│           ├── Onboarding.tsx         # 4-step Project Initialization wizard
+│           ├── Dashboard.tsx          # Post-onboarding landing
+│           └── AuthCallback.tsx       # OAuth token handler
+│
+├── backend/                           # Node.js + Express API
+│   ├── prisma/
+│   │   └── schema.prisma             # PostgreSQL schema
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── db.ts                 # Prisma + Mongoose connections
+│   │   │   └── passport.ts           # Local + OAuth strategies
+│   │   ├── middleware/
+│   │   │   └── auth.ts               # JWT verification
+│   │   ├── models/
+│   │   │   └── Session.ts            # MongoDB with TTL auto-expiry
+│   │   ├── routes/
+│   │   │   ├── auth.ts               # Auth endpoints
+│   │   │   └── onboarding.ts         # Onboarding endpoints
+│   │   ├── utils/
+│   │   │   └── jwt.ts                # Token helpers
+│   │   └── server.ts                 # Entry point
+│   ├── .env / .env.example
+│   └── package.json
+│
+├── Figma Designs(Page wise)/
+└── Logo/
+```
+
+---
+
+## Backend API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/register` | ❌ | Create account (fullName, email, username, password) |
+| `POST` | `/api/auth/login` | ❌ | Login with email + password |
+| `POST` | `/api/auth/refresh` | ❌ | Refresh access token (rotation) |
+| `GET`  | `/api/auth/me` | ✅ | Get current user + profile + onboarding |
+| `POST` | `/api/auth/logout` | ✅ | Invalidate refresh token |
+| `GET`  | `/api/auth/google` | ❌ | Start Google OAuth |
+| `GET`  | `/api/auth/github` | ❌ | Start GitHub OAuth |
+| `GET`  | `/api/auth/microsoft` | ❌ | Start Microsoft OAuth |
+| `POST` | `/api/onboarding` | ✅ | Save 4-step onboarding answers |
+| `GET`  | `/api/onboarding` | ✅ | Get onboarding data |
+| `GET`  | `/api/health` | ❌ | Health check |
+
+---
+
+## Database Architecture
+
+### PostgreSQL (Prisma)
+- **User** — id, email, username, passwordHash, provider, providerId, onboarded
+- **Profile** — displayName, avatar, bio (1:1 with User)
+- **Onboarding** — operationalRole, primaryObjective, infrastructureState, deploymentTimeline (1:1 with User)
+
+### MongoDB (Mongoose)
+- **Session** — userId, refreshToken (hashed), userAgent, ipAddress, expiresAt
+  - TTL index on `expiresAt` → auto-deletes expired tokens
+
+---
+
+## Auth Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant B as Backend
+    participant PG as PostgreSQL
+    participant MG as MongoDB
+    
+    U->>F: Fill Sign Up form
+    F->>B: POST /api/auth/register
+    B->>PG: Create User + Profile
+    B->>MG: Store hashed refresh token (TTL)
+    B->>F: { accessToken, refreshToken, user }
+    F->>F: Check user.onboarded
+    F->>F: Navigate to /onboarding
+    U->>F: Complete 4 wizard steps
+    F->>B: POST /api/onboarding
+    B->>PG: Create Onboarding + set onboarded=true
+    F->>F: Navigate to /dashboard
+```
+
+---
+
+## How To Run
+
+### 1. Backend
+```bash
+cd d:\Projects\Chronypt\backend
+
+# Configure environment
+# Edit .env with your PostgreSQL URL, MongoDB URI, and OAuth credentials
+
+# Push schema to PostgreSQL
+npx prisma db push
+
+# Start dev server (port 5000)
+npm run dev
+```
+
+### 2. Frontend
+```bash
+cd d:\Projects\Chronypt\frontend
+npm run dev
+# Opens on http://localhost:5173
+```
+
+> [!IMPORTANT]
+> **Before running the backend**, you need:
+> 1. A running **PostgreSQL** instance (update `DATABASE_URL` in `.env`)
+> 2. A running **MongoDB** instance (update `MONGODB_URI` in `.env`)
+> 3. Run `npx prisma db push` to create the tables
+>
+> OAuth will only work after you register apps on Google/GitHub/Microsoft developer consoles.
+
+---
+
+## Verification Results
+
+- ✅ Backend TypeScript: **0 errors** (`npx tsc --noEmit`)
+- ✅ Frontend production build: **0 errors** (built in 2.65s)
+- ✅ Prisma client generated successfully
+- ✅ All 184 backend packages + 238 frontend packages installed

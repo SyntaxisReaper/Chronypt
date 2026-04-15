@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  username     String      @unique
+  passwordHash String?
+  provider     String      @default("local") // local | google | github | microsoft
+  providerId   String?
+  onboarded    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  profile      Profile?
+  onboarding   Onboarding?
+
+  @@index([provider, providerId])
+}
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  avatar      String?
+  bio         String?
+}
+
+model Onboarding {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operationalRole     String   // technical_founder | nontechnical_founder | product_manager | operations_lead
+  primaryObjective    String   // market_validation | system_architecture | operational_deployment | full_ecosystem
+  infrastructureState String   // greenfield | mvp_scaling | legacy_modernization
+  deploymentTimeline  String   // immediate | q2_q3 | long_term
+  completedAt         DateTime @default(now())
+}
