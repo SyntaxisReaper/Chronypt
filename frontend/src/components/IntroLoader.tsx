@@ -17,69 +17,37 @@ interface ScriptLine {
 }
 
 const SCRIPT: ScriptLine[] = [
+  // ── Code phase ──
   { text: '// chronypt — deployment engine v2.4.1', type: 'comment', delayBefore: 0 },
-  { text: '// Initializing project scaffold...', type: 'comment', delayBefore: 120 },
-  { text: '', type: 'blank', delayBefore: 80 },
-  { text: "import express from 'express';", type: 'code', delayBefore: 200 },
-  { text: "import cors    from 'cors';", type: 'code', delayBefore: 80 },
-  { text: "import helmet  from 'helmet';", type: 'code', delayBefore: 80 },
-  { text: '', type: 'blank', delayBefore: 60 },
-  { text: 'const app  = express();', type: 'code', delayBefore: 140 },
-  { text: 'const PORT = process.env.PORT || 8080;', type: 'code', delayBefore: 80 },
-  { text: '', type: 'blank', delayBefore: 60 },
-  { text: 'app.use(helmet());', type: 'code', delayBefore: 120 },
-  { text: "app.use(cors({ origin: process.env.FRONTEND_URL }));", type: 'code', delayBefore: 80 },
-  { text: '', type: 'blank', delayBefore: 60 },
-  { text: "app.get('/api/status', (_req, res) => {", type: 'code', delayBefore: 140 },
-  { text: "  res.json({ status: 'operational', regions: 12 });", type: 'code', delayBefore: 80 },
-  { text: '});', type: 'code', delayBefore: 60 },
-  { text: '', type: 'blank', delayBefore: 60 },
-  { text: 'app.listen(PORT, () => {', type: 'code', delayBefore: 100 },
-  { text: "  console.log(`Server running on :${PORT}`);", type: 'code', delayBefore: 80 },
-  { text: '});', type: 'code', delayBefore: 60 },
-  { text: '', type: 'blank', delayBefore: 300 },
-
-  // Build phase
-  { text: '$ docker build -t chronypt/core:latest .', type: 'command', delayBefore: 400 },
-  { text: '  → Sending build context to Docker daemon  4.21MB', type: 'output', delayBefore: 320, instant: true },
-  { text: '  → Step 1/8 : FROM node:20-alpine', type: 'output', delayBefore: 80, instant: true },
-  { text: '  → Step 2/8 : WORKDIR /app', type: 'output', delayBefore: 60, instant: true },
-  { text: '  → Step 3/8 : COPY package*.json .', type: 'output', delayBefore: 60, instant: true },
-  { text: '  → Step 4/8 : RUN npm ci --omit=dev', type: 'output', delayBefore: 60, instant: true },
-  { text: '  → Step 5/8 : COPY . .', type: 'output', delayBefore: 180, instant: true },
-  { text: '  → Step 6/8 : EXPOSE 8080', type: 'output', delayBefore: 50, instant: true },
-  { text: '  → Step 7/8 : CMD ["node","dist/server.js"]', type: 'output', delayBefore: 50, instant: true },
-  { text: '  ✓ Successfully built  a3f91b2cd814', type: 'success', delayBefore: 220, instant: true },
-  { text: '', type: 'blank', delayBefore: 80 },
-
-  // Push phase
-  { text: '$ docker push chronypt/core:latest', type: 'command', delayBefore: 260 },
-  { text: '  → Pushing layer sha256:9c3a…  56.2MB', type: 'output', delayBefore: 200, instant: true },
-  { text: '  ✓ Digest: sha256:a3f91b2cd8149e6f…', type: 'success', delayBefore: 280, instant: true },
-  { text: '', type: 'blank', delayBefore: 80 },
-
-  // Deploy phase
-  { text: '$ kubectl apply -f k8s/ --record', type: 'command', delayBefore: 300 },
-  { text: '  → deployment.apps/chronypt     configured', type: 'output', delayBefore: 160, instant: true },
-  { text: '  → service/chronypt-lb          configured', type: 'output', delayBefore: 60, instant: true },
-  { text: '  → ingress/chronypt-global      configured', type: 'output', delayBefore: 60, instant: true },
-  { text: '  → hpa/chronypt-autoscaler      configured', type: 'output', delayBefore: 60, instant: true },
-  { text: '', type: 'blank', delayBefore: 180 },
-
-  // Rollout
-  { text: '$ kubectl rollout status deployment/chronypt', type: 'command', delayBefore: 200 },
-  { text: '  → Waiting for rollout to finish: 0/3 updated...', type: 'output', delayBefore: 220, instant: true },
-  { text: '  → Waiting for rollout to finish: 1/3 updated...', type: 'output', delayBefore: 380, instant: true },
-  { text: '  → Waiting for rollout to finish: 2/3 updated...', type: 'output', delayBefore: 280, instant: true },
-  { text: '  ✓ deployment "chronypt" successfully rolled out', type: 'success', delayBefore: 300, instant: true },
-  { text: '', type: 'blank', delayBefore: 100 },
-
-  // Final success
-  { text: '  ✓ Replicas  : 3/3 running', type: 'success', delayBefore: 80, instant: true },
-  { text: '  ✓ Edge nodes: 24/24 healthy', type: 'success', delayBefore: 80, instant: true },
-  { text: '  ✓ Regions   : us-east · eu-west · ap-south · ap-east · [+8 more]', type: 'success', delayBefore: 80, instant: true },
+  { text: '', type: 'blank', delayBefore: 40 },
+  { text: "import express from 'express';", type: 'code', delayBefore: 80 },
+  { text: "import cors from 'cors';", type: 'code', delayBefore: 40 },
+  { text: 'const app = express();', type: 'code', delayBefore: 60 },
+  { text: "app.use(cors({ origin: process.env.FRONTEND_URL }));", type: 'code', delayBefore: 40 },
+  { text: "app.get('/api/status', (_req, res) => {", type: 'code', delayBefore: 60 },
+  { text: "  res.json({ status: 'operational', regions: 12 });", type: 'code', delayBefore: 40 },
+  { text: '});', type: 'code', delayBefore: 30 },
+  { text: 'app.listen(process.env.PORT || 8080);', type: 'code', delayBefore: 50 },
   { text: '', type: 'blank', delayBefore: 120 },
-  { text: '  ✓ GLOBAL DEPLOYMENT COMPLETE', type: 'success', delayBefore: 160, instant: true },
+
+  // ── Build phase ──
+  { text: '$ docker build -t chronypt/core:latest .', type: 'command', delayBefore: 160 },
+  { text: '  → Step 1/6 : FROM node:20-alpine', type: 'output', delayBefore: 200, instant: true },
+  { text: '  → Step 4/6 : RUN npm ci --omit=dev', type: 'output', delayBefore: 80, instant: true },
+  { text: '  → Step 6/6 : CMD ["node","dist/server.js"]', type: 'output', delayBefore: 60, instant: true },
+  { text: '  ✓ Successfully built a3f91b2cd814', type: 'success', delayBefore: 120, instant: true },
+  { text: '', type: 'blank', delayBefore: 60 },
+
+  // ── Deploy phase ──
+  { text: '$ kubectl apply -f k8s/', type: 'command', delayBefore: 120 },
+  { text: '  → deployment.apps/chronypt  configured', type: 'output', delayBefore: 180, instant: true },
+  { text: '  → service/chronypt-lb       configured', type: 'output', delayBefore: 50, instant: true },
+  { text: '  → ingress/chronypt-global   configured', type: 'output', delayBefore: 50, instant: true },
+  { text: '  ✓ Rolled out across 12 regions · 3/3 replicas running', type: 'success', delayBefore: 200, instant: true },
+  { text: '', type: 'blank', delayBefore: 80 },
+
+  // ── Final ──
+  { text: '  ✓ GLOBAL DEPLOYMENT COMPLETE', type: 'success', delayBefore: 100, instant: true },
 ];
 
 /* ─── Syntax token colours ─── */
@@ -199,7 +167,7 @@ function TerminalLine({
   done: boolean;
   onDone: () => void;
 }) {
-  const speed = scriptLine.type === 'command' ? 28 : 18;
+  const speed = scriptLine.type === 'command' ? 14 : 8;
   const typed = useTypewriter(scriptLine.instant ? '' : scriptLine.text, speed, active && !scriptLine.instant);
   const displayText = scriptLine.instant || done ? scriptLine.text : typed;
   const showCursor = active && !done && !scriptLine.instant;
@@ -319,7 +287,7 @@ export default function IntroLoader({ onComplete }: IntroLoaderProps) {
   function startLine(idx: number) {
     if (idx >= SCRIPT.length) {
       // All lines done → trigger exit
-      scheduleTimeout(triggerExit, 900);
+      scheduleTimeout(triggerExit, 500);
       return;
     }
     lineQueueRef.current = idx;
