@@ -26,6 +26,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
+// ─── Root route (prevents "Cannot GET /" on Render) ───
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'Chronypt API',
+    version: '1.0.0',
+    status: 'operational',
+    docs: '/api/health',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ─── Routes ───
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/onboarding', onboardingRoutes);
@@ -33,6 +44,11 @@ app.use('/api/onboarding', onboardingRoutes);
 // ─── Health check ───
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ─── 404 fallback ───
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
 // ─── Start Server ───

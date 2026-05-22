@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
+import IntroLoader from './components/IntroLoader';
 
 // Lazy-load pages for code splitting — reduces initial bundle size
 const Home = lazy(() => import('./pages/Home'));
@@ -51,14 +52,48 @@ function AnimatedRoutes() {
   );
 }
 
+// Check if the intro has already played this browser session
+function shouldShowIntro(): boolean {
+  try {
+    return !sessionStorage.getItem('chronypt_intro_seen');
+  } catch {
+    return false;
+  }
+}
+
 function App() {
+  const [introComplete, setIntroComplete] = useState(!shouldShowIntro());
+
+  function handleIntroComplete() {
+    try {
+      sessionStorage.setItem('chronypt_intro_seen', '1');
+    } catch { /* ignore */ }
+    setIntroComplete(true);
+  }
+
   return (
-    <BrowserRouter>
-      <div style={{ position: 'relative', minHeight: '100vh', width: '100%' }}>
-        <Navbar />
-        <AnimatedRoutes />
-      </div>
-    </BrowserRouter>
+    <>
+      {/* Cinematic terminal intro — plays once per session */}
+      <AnimatePresence>
+        {!introComplete && (
+          <IntroLoader onComplete={handleIntroComplete} />
+        )}
+      </AnimatePresence>
+
+      {/* Main app — rendered underneath, fades in when intro exits */}
+      <BrowserRouter>
+        <div style={{
+          position: 'relative',
+          minHeight: '100vh',
+          width: '100%',
+          opacity: introComplete ? 1 : 0,
+          transition: 'opacity 0.6s ease',
+        }}>
+          <Navbar />
+          <AnimatedRoutes />
+        </div>
+      </BrowserRouter>
+    </>
   );
 }
 
